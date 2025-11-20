@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Simulador Prueba Hidráulica GNC</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      --q-am: #ffd600;
+      --q-rojo: #e21b1b;
+      --q-gris-fondo: #f4f4f4;
+      --q-texto: #222222;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 16px;
+      background:
+        radial-gradient(circle at top left, rgba(255,214,0,0.35), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(226,27,27,0.25), transparent 55%),
+        var(--q-gris-fondo);
+      color: var(--q-texto);
+    }
+
+    /* INTRO ESTILO MARCA */
+    .intro-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--q-am);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9998;
+      animation: introFadeOut 2.8s ease-in-out forwards;
+    }
+
+    .intro-logo {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 24px;
+      padding: 24px 32px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      animation: logoPop 1.2s ease-out forwards;
+      border: 2px solid rgba(0,0,0,0.05);
+    }
+
+    .intro-logo-icon {
+      width: 96px;
+      height: 96px;
+      border-radius: 24px;
+      background: var(--q-am);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow:
+        inset 0 0 0 4px var(--q-rojo),
+        0 4px 12px rgba(0,0,0,0.25);
+    }
+
+    .intro-logo-icon span {
+      font-size: 64px;
+      font-weight: 900;
+      color: var(--q-rojo);
+      letter-spacing: -4px;
+    }
+
+    .intro-logo-text {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .intro-logo-text-main {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--q-rojo);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .intro-logo-text-sub {
+      font-size: 13px;
+      font-weight: 600;
+      color: #333;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    @keyframes logoPop {
+      0% { transform: scale(0.7); opacity: 0; }
+      40% { transform: scale(1.05); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    @keyframes introFadeOut {
+      0% { opacity: 1; visibility: visible; }
+      70% { opacity: 1; }
+      100% { opacity: 0; visibility: hidden; }
+    }
+
+    /* CONTENEDOR PRINCIPAL */
+    .app {
+      max-width: 1040px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 20px 22px 26px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+      opacity: 0;
+      animation: appFadeIn 0.8s ease-out forwards;
+      animation-delay: 2.3s;
+      border-top: 5px solid var(--q-rojo);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .app::before {
+      content: "";
+      position: absolute;
+      right: -40px;
+      top: -40px;
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,214,0,0.6), transparent 60%);
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    @keyframes appFadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* CABECERA APP */
+    .app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .app-title-block {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    h1 {
+      font-size: 22px;
+      margin: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--q-rojo);
+    }
+
+    .app-subtitle {
+      font-size: 13px;
+      color: #555;
+    }
+
+    .app-badge {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      background: var(--q-am);
+      color: #000;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(0,0,0,0.1);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    p {
+      margin: 4px 0 10px;
+      font-size: 13px;
+      color: #444;
+    }
+
+    /* FORMULARIO */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    input[type="number"] {
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid #cccccc;
+      font-size: 14px;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+    }
+
+    input[type="number"]:focus {
+      outline: none;
+      border-color: var(--q-rojo);
+      box-shadow: 0 0 0 1px rgba(226,27,27,0.25);
+      background-color: #fffdf5;
+    }
+
+    .hint {
+      font-size: 11px;
+      color: #777;
+    }
+
+    .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 8px 16px;
+      font-size: 13px;
+      cursor: pointer;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.07s ease;
+    }
+
+    .btn-main {
+      background: var(--q-rojo);
+      color: #ffffff;
+      box-shadow: 0 2px 6px rgba(226,27,27,0.3);
+    }
+
+    .btn-main:hover {
+      background: #b91515;
+      box-shadow: 0 3px 9px rgba(226,27,27,0.4);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: #ffffff;
+      color: var(--q-rojo);
+      border: 1px solid rgba(226,27,27,0.4);
+    }
+
+    .btn-secondary:hover {
+      background: #fff7d9;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      transform: translateY(-1px);
+    }
+
+    .error {
+      margin-top: 10px;
+      color: #b00020;
+      font-size: 13px;
+      display: none;
+      padding: 6px 10px;
+      border-radius: 6px;
+      background: #ffe6e9;
+      border: 1px solid #f5a5a5;
+    }
+
+    /* RESULTADOS */
+    .result {
+      margin-top: 20px;
+      border-top: 1px solid #e0e0e0;
+      padding-top: 16px;
+      display: none;
+    }
+
+    #estadoGlobal p {
+      font-size: 14px;
+      margin: 0 0 10px;
+    }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 12px;
+      margin-top: 10px;
+    }
+
+    .card {
+      background: #fafafa;
+      border-radius: 10px;
+      padding: 10px 11px;
+      border: 1px solid #e3e3e3;
+      font-size: 13px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 3px;
+      width: 100%;
+      background: linear-gradient(90deg, var(--q-rojo), var(--q-am));
+    }
+
+    .card h3 {
+      margin: 2px 0 8px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #333;
+    }
+
+    .card div {
+      margin-bottom: 2px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      margin-top: 6px;
+    }
+
+    .badge-ok {
+      background: #e0f7e9;
+      color: #0f7a33;
+      border: 1px solid #9ad2ab;
+    }
+
+    .badge-bad {
+      background: #ffe6e6;
+      color: #b00020;
+      border: 1px solid #f5a5a5;
+    }
+
+    .criteria {
+      margin-top: 12px;
+      font-size: 12px;
+      color: #555;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: #fffbe4;
+      border: 1px dashed rgba(0,0,0,0.08);
+    }
+
+    .criteria ul {
+      padding-left: 18px;
+      margin: 4px 0 0;
+    }
+
+    /* Guía plegable */
+    .explanation {
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid #e0e0e0;
+      font-size: 13px;
+      color: #333;
+    }
+
+    .explanation summary {
+      cursor: pointer;
+      font-weight: 600;
+      list-style: none;
+      outline: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #fff9cf;
+      border: 1px solid rgba(0,0,0,0.08);
+    }
+
+    .explanation summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .explanation summary::before {
+      content: "+";
+      font-weight: 700;
+      color: var(--q-rojo);
+    }
+
+    .explanation[open] summary::before {
+      content: "−";
+    }
+
+    .explanation-content {
+      margin-top: 10px;
+      padding: 10px 10px 2px;
+      border-radius: 8px;
+      background: #fdfdf6;
+      border: 1px solid #ece7bf;
+    }
+
+    .explanation-content h3 {
+      margin: 8px 0 4px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: #444;
+    }
+
+    .explanation-content ul {
+      padding-left: 18px;
+      margin: 4px 0 8px;
+    }
+
+    .explanation-content code {
+      background: #f0f0f0;
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-size: 12px;
+    }
+
+    /* Panel flotante BVG / Material (estilo Quiroga) */
+    .bvg-panel {
+      position: fixed;
+      right: 18px;
+      top: 18px;
+      width: 260px;
+      max-width: 90vw;
+      background: #ffffff;
+      color: var(--q-texto);
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+      font-size: 13px;
+      z-index: 9999;
+      overflow: hidden;
+      border-top: 4px solid var(--q-rojo);
+    }
+
+    .bvg-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(135deg, var(--q-rojo), var(--q-am));
+      padding: 6px 10px;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+      color: #111;
+    }
+
+    .bvg-header span {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    #bvg-toggle {
+      background: transparent;
+      border: none;
+      color: #111;
+      font-size: 16px;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+      font-weight: 700;
+    }
+
+    #bvg-toggle:hover {
+      color: #000;
+    }
+
+    .bvg-body {
+      padding: 10px 10px 12px;
+      background: #fffef7;
+      border-top: 1px solid rgba(0,0,0,0.06);
+    }
+
+    .bvg-body label {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #555;
+    }
+
+    #bvg-codigo-input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid #d4d4d4;
+      background: #ffffff;
+      color: var(--q-texto);
+      margin-bottom: 6px;
+      font-size: 13px;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+    }
+
+    #bvg-codigo-input:focus {
+      outline: none;
+      border-color: var(--q-rojo);
+      box-shadow: 0 0 0 1px rgba(226,27,27,0.25);
+      background: #fffdf5;
+    }
+
+    #bvg-buscar-btn {
+      width: 100%;
+      padding: 6px 0;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      background: linear-gradient(135deg, var(--q-rojo), var(--q-am));
+      color: #111;
+      margin-bottom: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+
+    #bvg-buscar-btn:hover {
+      filter: brightness(1.03);
+      box-shadow: 0 3px 8px rgba(0,0,0,0.20);
+    }
+
+    #bvg-resultado p {
+      margin: 2px 0;
+      font-size: 12px;
+    }
+
+    #bvg-resultado strong {
+      color: #555;
+    }
+
+    .bvg-mensaje {
+      margin-top: 4px;
+      font-size: 11px;
+      color: #b00020;
+    }
+
+    /* Estado plegado: se oculta el cuerpo y queda solo la cabecera */
+    .bvg-panel.bvg-closed .bvg-body {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- INTRO -->
+  <div class="intro-overlay">
+    <div class="intro-logo">
+      <div class="intro-logo-icon">
+        <span>Q</span>
+      </div>
+      <div class="intro-logo-text">
+        <div class="intro-logo-text-main">QUIROGA</div>
+        <div class="intro-logo-text-sub">CRPC · PRUEBA HIDRÁULICA</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ventana flotante BVG / Material -->
+  <div id="bvg-floating-panel" class="bvg-panel bvg-closed">
+    <div class="bvg-header">
+      <span>Buscador BVG / Material</span>
+      <button id="bvg-toggle" type="button">×</button>
+    </div>
+
+    <div class="bvg-body">
+      <label for="bvg-codigo-input">Código de cilindro</label>
+      <input
+        id="bvg-codigo-input"
+        type="text"
+        placeholder="Ej: AR14, CM01..."
+        autocomplete="off"
+      >
+      <button id="bvg-buscar-btn" type="button">Buscar</button>
+
+      <div id="bvg-resultado">
+        <p><strong>Código:</strong> <span id="bvg-cod-mostrar">-</span></p>
+        <p><strong>BVG / Norma:</strong> <span id="bvg-valor">-</span></p>
+        <p><strong>Grupo:</strong> <span id="bvg-grupo">-</span></p>
+        <p><strong>Material:</strong> <span id="bvg-material">-</span></p>
+        <p><strong>Longitud:</strong> <span id="bvg-longitud">-</span> mm</p>
+        <p id="bvg-mensaje" class="bvg-mensaje"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- APP -->
+  <div class="app">
+    <div class="app-header">
+      <div class="app-title-block">
+        <h1>Simulador prueba hidráulica gnc</h1>
+        <div class="app-subtitle">
+          Simulación de espesores, pesaje y ensayo hidráulico en base a volumen, masa y diámetro nominal.
+        </div>
+      </div>
+      <div class="app-badge">Uso interno · CRPC</div>
+    </div>
+
+    <p>
+      Ingresás <strong>Volumen [L]</strong>, <strong>Masa actual [kg]</strong> y
+      <strong>Diámetro nominal [mm]</strong>. El simulador arma un caso completo y muestra
+      si quedaría APROBADO o RECHAZADO según criterios de espesores y expansión.
+    </p>
+
+    <div class="grid">
+      <div class="field">
+        <label for="volumenL">Volumen nominal [L]</label>
+        <input id="volumenL" type="number" step="0.01" placeholder="Ej: 29.9" />
+        <div class="hint">Volumen de agua del cilindro.</div>
+      </div>
+      <div class="field">
+        <label for="masaActual">Masa actual cilindro [kg]</label>
+        <input id="masaActual" type="number" step="0.01" placeholder="Ej: 68.2" />
+        <div class="hint">Pesaje real del cilindro vacío.</div>
+      </div>
+      <div class="field">
+        <label for="diametro">Diámetro nominal [mm]</label>
+        <input id="diametro" type="number" step="0.1" placeholder="Ej: 273" />
+        <div class="hint">Diámetro medio de la zona de medición.</div>
+      </div>
+    </div>
+
+    <div class="buttons">
+      <button class="btn-main" id="btnSimular">Generar simulacro</button>
+      <button class="btn-secondary" id="btnLimpiar">Limpiar</button>
+    </div>
+
+    <div class="error" id="errorMsg"></div>
+
+    <div class="result" id="resultBlock">
+      <div id="estadoGlobal"></div>
+
+      <div class="result-grid">
+        <!-- 1) CONTROL ESPESORES -->
+        <div class="card">
+          <h3>Control de espesores</h3>
+          <div>Mínimo de cálculo usado: <span id="resMinCalc"></span> mm</div>
+          <div>Ojiva (4 puntos): <span id="resOjiva"></span> mm</div>
+          <div>Pared (4 puntos): <span id="resPared"></span> mm</div>
+          <div>Fondo (4 puntos): <span id="resFondo"></span> mm</div>
+          <div>Espesor mínimo medido: <span id="resEspMin"></span> mm</div>
+          <div>Estado espesores: <span id="resEspEstado"></span></div>
+        </div>
+
+        <!-- 2) PESAJES -->
+        <div class="card">
+          <h3>Inspección de pesaje</h3>
+          <div>Pesaje actual: <span id="resPesajeActual"></span> kg</div>
+          <div>Pesaje lleno (masa + volumen): <span id="resPesajeLleno"></span> kg</div>
+          <div>Volumen: <span id="resVolumenL"></span> L</div>
+          <div>Volumen: <span id="resVolumenCm3"></span> cm³</div>
+        </div>
+
+        <!-- 3) ENSAYO HIDRÁULICO -->
+        <div class="card">
+          <h3>Ensayo hidráulico</h3>
+          <div>Ingreso de agua: <span id="resAguaIngreso"></span> cm³</div>
+          <div>Egreso de agua: <span id="resAguaEgreso"></span> cm³</div>
+          <div>Agua remanente: <span id="resAguaRem"></span> cm³</div>
+          <div>Expansión total: <span id="resTotalPct"></span> %</div>
+          <div>Deformación permanente: <span id="resPermPct"></span> %</div>
+          <div>Relación perm/total: <span id="resRelPct"></span> %</div>
+          <div id="resDetalleCriterios"></div>
+        </div>
+
+        <!-- 4) O1 - O2 - OV -->
+        <div class="card">
+          <h3>Diámetros y ovalización</h3>
+          <div>O1 (antes, 3 puntos): <span id="resO1"></span> mm</div>
+          <div>O2 (después, 3 puntos): <span id="resO2"></span> mm</div>
+          <div>OV: <span id="resOVmm"></span> mm (<span id="resOVpct"></span> %)</div>
+        </div>
+      </div>
+
+      <div class="criteria">
+        Criterios usados para el resultado APROBADO/RECHAZADO:
+        <ul>
+          <li>Expansión total ≤ 5 % del volumen nominal.</li>
+          <li>Deformación permanente ≤ 10 % de la expansión total.</li>
+          <li>Espesor mínimo medido ≥ mínimo de cálculo según diámetro.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- GUÍA PLEGABLE -->
+    <details class="explanation">
+      <summary>Guía rápida: qué calcula este simulador</summary>
+      <div class="explanation-content">
+        <h3>1) Datos base</h3>
+        <ul>
+          <li><strong>Volumen nominal [L]</strong>: dato que ingresa el usuario.</li>
+          <li><strong>Volumen [cm³]</strong>: <code>volumen_cm3 = volumen_L × 1000</code>.</li>
+          <li><strong>Masa actual [kg]</strong>: pesaje real del cilindro vacío.</li>
+          <li><strong>Pesaje lleno [kg]</strong>:
+            <code>pesaje_lleno = masa_actual + volumen_L</code>.</li>
+        </ul>
+
+        <h3>2) Mínimo de cálculo según diámetro</h3>
+        <p>Regla aproximada usada por el simulador:</p>
+        <ul>
+          <li>diámetro ≤ 260 mm → mínimo = 5,0 mm</li>
+          <li>260 &lt; diámetro ≤ 300 mm → mínimo = 5,5 mm</li>
+          <li>300 &lt; diámetro ≤ 340 mm → mínimo = 6,5 mm</li>
+          <li>340 &lt; diámetro ≤ 380 mm → mínimo = 7,5 mm</li>
+          <li>diámetro &gt; 380 mm → mínimo = 9,0 mm</li>
+        </ul>
+
+        <h3>3) Espesores (Ojiva, Pared, Fondo)</h3>
+        <ul>
+          <li>Ojiva nominal ≈ <code>0,066 × diámetro</code>.</li>
+          <li>Fondo nominal ≈ <code>0,057 × diámetro</code>.</li>
+          <li>Pared nominal ≈ <code>1,115 × mínimo_de_cálculo</code>.</li>
+          <li>4 puntos por zona con variación chica.</li>
+          <li>Espesor mínimo:
+            <code>esp_min = mínimo de todos los puntos</code>.</li>
+          <li>Estado espesores: OK si <code>esp_min ≥ mínimo_de_cálculo</code>.</li>
+        </ul>
+
+        <h3>4) Ensayo hidráulico</h3>
+        <ul>
+          <li>Expansión total simulada ~2 % (1,8–2,4 %).</li>
+          <li>Ingreso de agua:
+            <code>agua_ingreso = V × exp_total_% / 100</code>.</li>
+        </ul>
+
+        <h3>5) Deformación permanente</h3>
+        <ul>
+          <li>Fracción permanente:
+            <code>rel_perm</code> 4–8 % de la total.</li>
+          <li>Deformación permanente:
+            <code>def_perm_% = exp_total_% × rel_perm</code>.</li>
+          <li>Agua remanente:
+            <code>agua_rem = V × def_perm_% / 100</code>.</li>
+          <li>Egreso de agua:
+            <code>agua_egreso = agua_ingreso − agua_rem</code>.</li>
+        </ul>
+
+        <h3>6) O1, O2 y OV</h3>
+        <ul>
+          <li>Se usa el diámetro nominal <code>Dnom</code> como base.</li>
+          <li>O1: 3 puntos antes de la prueba.</li>
+          <li>O2: mismos puntos con pequeño aumento.</li>
+          <li>OV_mm = máximo(OV1, OV2); OV_% = OV_mm / Dnom × 100.</li>
+        </ul>
+
+        <h3>7) Resultado global</h3>
+        <ul>
+          <li><code>exp_total_% ≤ 5</code></li>
+          <li><code>rel_perm_total_% ≤ 10</code></li>
+          <li><code>esp_min ≥ mínimo_de_cálculo</code></li>
+        </ul>
+      </div>
+    </details>
+  </div>
+
+  <!-- JS simulador -->
+  <script>
+    function randomInRange(min, max) {
+      return Math.random() * (max - min) + min;
+    }
+
+    function formatNumber(value, decimals) {
+      return Number(value).toFixed(decimals);
+    }
+
+    function simEspesores(base, variacion, count) {
+      const valores = [];
+      for (let i = 0; i < count; i++) {
+        valores.push(base + randomInRange(-variacion, variacion));
+      }
+      return valores;
+    }
+
+    function maxArray(arr) {
+      return Math.max.apply(null, arr);
+    }
+
+    function minArray(arr) {
+      return Math.min.apply(null, arr);
+    }
+
+    function getMinCalcByDiameter(d) {
+      if (d <= 260) return 5.0;
+      if (d <= 300) return 5.5;
+      if (d <= 340) return 6.5;
+      if (d <= 380) return 7.5;
+      return 9.0;
+    }
+
+    const volumenLInput = document.getElementById("volumenL");
+    const masaActualInput = document.getElementById("masaActual");
+    const diametroInput = document.getElementById("diametro");
+
+    const errorMsg = document.getElementById("errorMsg");
+    const resultBlock = document.getElementById("resultBlock");
+    const estadoGlobal = document.getElementById("estadoGlobal");
+
+    const resVolumenL = document.getElementById("resVolumenL");
+    const resVolumenCm3 = document.getElementById("resVolumenCm3");
+
+    const resPesajeActual = document.getElementById("resPesajeActual");
+    const resPesajeLleno = document.getElementById("resPesajeLleno");
+
+    const resMinCalc = document.getElementById("resMinCalc");
+    const resOjiva = document.getElementById("resOjiva");
+    const resPared = document.getElementById("resPared");
+    const resFondo = document.getElementById("resFondo");
+    const resEspMin = document.getElementById("resEspMin");
+    const resEspEstado = document.getElementById("resEspEstado");
+
+    const resAguaIngreso = document.getElementById("resAguaIngreso");
+    const resAguaEgreso = document.getElementById("resAguaEgreso");
+    const resTotalPct = document.getElementById("resTotalPct");
+    const resAguaRem = document.getElementById("resAguaRem");
+    const resPermPct = document.getElementById("resPermPct");
+    const resRelPct = document.getElementById("resRelPct");
+    const resDetalleCriterios = document.getElementById("resDetalleCriterios");
+
+    const resO1 = document.getElementById("resO1");
+    const resO2 = document.getElementById("resO2");
+    const resOVmm = document.getElementById("resOVmm");
+    const resOVpct = document.getElementById("resOVpct");
+
+    document.getElementById("btnSimular").addEventListener("click", function () {
+      errorMsg.style.display = "none";
+      errorMsg.textContent = "";
+      resultBlock.style.display = "none";
+      estadoGlobal.innerHTML = "";
+
+      const volumenLitros = parseFloat((volumenLInput.value || "").replace(",", "."));
+      const masaActual = parseFloat((masaActualInput.value || "").replace(",", "."));
+      const diamNom = parseFloat((diametroInput.value || "").replace(",", "."));
+
+      if (isNaN(volumenLitros) || volumenLitros <= 0) {
+        errorMsg.textContent = "Ingresá un volumen nominal válido (> 0).";
+        errorMsg.style.display = "block";
+        return;
+      }
+      if (isNaN(masaActual) || masaActual <= 0) {
+        errorMsg.textContent = "Ingresá una masa actual válida (> 0).";
+        errorMsg.style.display = "block";
+        return;
+      }
+      if (isNaN(diamNom) || diamNom <= 0) {
+        errorMsg.textContent = "Ingresá un diámetro nominal válido (> 0).";
+        errorMsg.style.display = "block";
+        return;
+      }
+
+      const volumenCm3 = volumenLitros * 1000;
+
+      const pesajeActual = masaActual;
+      const pesajeLleno = masaActual + volumenLitros;
+
+      const minCalc = getMinCalcByDiameter(diamNom);
+
+      // Ojiva y fondo escaladas por diámetro
+      const ojivaNom = diamNom * 0.066;
+      const fondoNom = diamNom * 0.057;
+
+      const ojivaVals = simEspesores(ojivaNom, 0.4, 4);
+      // PARED basada en mínimo de cálculo, factor ~1.115
+      const paredNom = minCalc * 1.115;
+      const paredVals = simEspesores(paredNom, 0.15, 4);
+      const fondoVals = simEspesores(fondoNom, 0.4, 4);
+
+      const todosEspesores = ojivaVals.concat(paredVals, fondoVals);
+      const espMin = minArray(todosEspesores);
+      const espesoresOk = espMin >= minCalc;
+
+      // Ensayo hidráulico más realista: total ~2 %
+      const totalPct = randomInRange(1.8, 2.4);
+      const relacionFrac = randomInRange(0.04, 0.08); // 4–8 % de la total
+      const permPct = totalPct * relacionFrac;
+
+      const aguaIngreso = (volumenCm3 * totalPct) / 100;
+      const aguaRem = (volumenCm3 * permPct) / 100;
+      const aguaEgreso = Math.max(aguaIngreso - aguaRem, 0);
+
+      const relacionPct = (permPct / totalPct) * 100;
+
+      const limiteTotal = 5.0;
+      const limiteRel = 10.0;
+
+      const cumpleTotal = totalPct <= limiteTotal;
+      const cumpleRel = relacionPct <= limiteRel;
+
+      const o1Vals = [];
+      const o2Vals = [];
+      const deltaMedio = randomInRange(0.0, 1.5);
+
+      for (let i = 0; i < 3; i++) {
+        const baseVar = randomInRange(-2, 2);
+        const d1 = diamNom + baseVar;
+        const d2 = d1 + deltaMedio + randomInRange(-0.5, 0.5);
+        o1Vals.push(d1);
+        o2Vals.push(d2);
+      }
+
+      const ov1 = maxArray(o1Vals) - minArray(o1Vals);
+      const ov2 = maxArray(o2Vals) - minArray(o2Vals);
+      const ovMm = Math.max(ov1, ov2);
+      const ovPct = (ovMm / diamNom) * 100;
+
+      const aprobado = cumpleTotal && cumpleRel && espesoresOk;
+
+      resVolumenL.textContent = formatNumber(volumenLitros, 2);
+      resVolumenCm3.textContent = formatNumber(volumenCm3, 0);
+
+      resPesajeActual.textContent = formatNumber(pesajeActual, 2);
+      resPesajeLleno.textContent = formatNumber(pesajeLleno, 2);
+
+      resMinCalc.textContent = formatNumber(minCalc, 2);
+      resOjiva.textContent = ojivaVals.map(v => formatNumber(v, 1)).join(" / ");
+      resPared.textContent = paredVals.map(v => formatNumber(v, 2)).join(" / ");
+      resFondo.textContent = fondoVals.map(v => formatNumber(v, 1)).join(" / ");
+      resEspMin.textContent = formatNumber(espMin, 2);
+      resEspEstado.textContent = espesoresOk ? "OK (≥ mínimo de cálculo)" : "NO OK (< mínimo de cálculo)";
+
+      resAguaIngreso.textContent = formatNumber(aguaIngreso, 1);
+      resAguaEgreso.textContent = formatNumber(aguaEgreso, 1);
+      resTotalPct.textContent = formatNumber(totalPct, 2);
+
+      resAguaRem.textContent = formatNumber(aguaRem, 1);
+      resPermPct.textContent = formatNumber(permPct, 3);
+      resRelPct.textContent = formatNumber(relacionPct, 2);
+
+      const detalle = [];
+      detalle.push(
+        "Expansión total: " +
+          formatNumber(totalPct, 2) +
+          " % (límite: " +
+          limiteTotal.toFixed(1) +
+          " %)"
+      );
+      detalle.push(
+        "Perm/Total: " +
+          formatNumber(relacionPct, 2) +
+          " % (límite: " +
+          limiteRel.toFixed(1) +
+          " %)"
+      );
+      detalle.push(
+        "Espesor mínimo: " +
+          formatNumber(espMin, 2) +
+          " mm (mínimo de cálculo: " +
+          formatNumber(minCalc, 2) +
+          " mm)"
+      );
+      resDetalleCriterios.innerHTML = detalle.join("<br>");
+
+      resO1.textContent = o1Vals.map(v => formatNumber(v, 1)).join(" / ");
+      resO2.textContent = o2Vals.map(v => formatNumber(v, 1)).join(" / ");
+      resOVmm.textContent = formatNumber(ovMm, 2);
+      resOVpct.textContent = formatNumber(ovPct, 2);
+
+      const badge = document.createElement("span");
+      badge.className = "badge " + (aprobado ? "badge-ok" : "badge-bad");
+      badge.textContent = aprobado ? "APROBADO" : "RECHAZADO";
+
+      const resumen = document.createElement("p");
+      resumen.textContent = "Resultado global del simulacro: ";
+      resumen.appendChild(badge);
+
+      estadoGlobal.appendChild(resumen);
+
+      resultBlock.style.display = "block";
+    });
+
+    document.getElementById("btnLimpiar").addEventListener("click", function () {
+      volumenLInput.value = "";
+      masaActualInput.value = "";
+      diametroInput.value = "";
+      errorMsg.style.display = "none";
+      errorMsg.textContent = "";
+      resultBlock.style.display = "none";
+      estadoGlobal.innerHTML = "";
+    });
+  </script>
+
+  <!-- Datos BVG (debe existir bvgData.js con CILINDROS_BVG) -->
+  <script src="bvgData.js"></script>
+
+  <!-- Lógica buscador BVG / Material / Longitud -->
+  <script>
+    function inicializarBuscadorBVG() {
+      const panel = document.getElementById("bvg-floating-panel");
+      const header = panel.querySelector(".bvg-header");
+      const toggleBtn = document.getElementById("bvg-toggle");
+      const input = document.getElementById("bvg-codigo-input");
+      const btnBuscar = document.getElementById("bvg-buscar-btn");
+      const spanCod = document.getElementById("bvg-cod-mostrar");
+      const spanBvg = document.getElementById("bvg-valor");
+      const spanGrupo = document.getElementById("bvg-grupo");
+      const spanMat = document.getElementById("bvg-material");
+      const spanLong = document.getElementById("bvg-longitud");
+      const mensaje = document.getElementById("bvg-mensaje");
+
+      function limpiarResultado() {
+        spanCod.textContent = "-";
+        spanBvg.textContent = "-";
+        spanGrupo.textContent = "-";
+        spanMat.textContent = "-";
+        spanLong.textContent = "-";
+        mensaje.textContent = "";
+      }
+
+      function buscarCodigo() {
+        const code = (input.value || "").trim().toUpperCase();
+        if (!code) {
+          limpiarResultado();
+          return;
+        }
+
+        if (typeof CILINDROS_BVG === "undefined" || !CILINDROS_BVG) {
+          mensaje.textContent = "No está cargado el archivo bvgData.js.";
+          spanCod.textContent = code;
+          spanBvg.textContent = "-";
+          spanGrupo.textContent = "-";
+          spanMat.textContent = "-";
+          spanLong.textContent = "-";
+          return;
+        }
+
+        const item = CILINDROS_BVG[code];
+
+        if (!item) {
+          spanCod.textContent = code;
+          spanBvg.textContent = "No encontrado";
+          spanGrupo.textContent = "-";
+          spanMat.textContent = "-";
+          spanLong.textContent = "-";
+          mensaje.textContent = "Revisá el código. No aparece en el listado.";
+        } else {
+          spanCod.textContent = code;
+          spanBvg.textContent = item.bvg || "-";
+          spanGrupo.textContent = item.grupo || "-";
+          spanMat.textContent = item.material || "-";
+          spanLong.textContent = item.longitud != null ? item.longitud : "-";
+          mensaje.textContent = "";
+        }
+      }
+
+      btnBuscar.addEventListener("click", buscarCodigo);
+
+      input.addEventListener("keyup", function(e) {
+        if (e.key === "Enter") buscarCodigo();
+      });
+
+      header.addEventListener("click", function(e) {
+        if (e.target === toggleBtn) return;
+        panel.classList.toggle("bvg-closed");
+      });
+
+      toggleBtn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        panel.classList.toggle("bvg-closed");
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+      inicializarBuscadorBVG();
+    });
+  </script>
+</body>
+</html>
