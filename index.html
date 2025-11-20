@@ -556,7 +556,6 @@
       color: #b00020;
     }
 
-    /* Estado plegado: se oculta el cuerpo y queda solo la cabecera */
     .bvg-panel.bvg-closed .bvg-body {
       display: none;
     }
@@ -669,6 +668,7 @@
           <div>Pesaje lleno (masa + volumen): <span id="resPesajeLleno"></span> kg</div>
           <div>Volumen: <span id="resVolumenL"></span> L</div>
           <div>Volumen: <span id="resVolumenCm3"></span> cm³</div>
+          <div>Longitud estimada (geom.): <span id="resLongAprox"></span> mm</div>
         </div>
 
         <!-- 3) ENSAYO HIDRÁULICO -->
@@ -769,6 +769,16 @@
           <li><code>rel_perm_total_% ≤ 10</code></li>
           <li><code>esp_min ≥ mínimo_de_cálculo</code></li>
         </ul>
+
+        <h3>8) Longitud aproximada</h3>
+        <ul>
+          <li>Se asume cilindro con dos semiesferas internas.</li>
+          <li>Se estima un espesor a partir del mínimo de cálculo.</li>
+          <li>Volumen interno:
+            <code>V = π·r²·L_c + (4/3)·π·r³</code></li>
+          <li>De ahí se despeja <code>L_c</code> y se aproxima
+            longitud externa ≈ <code>L_c + D</code>.</li>
+        </ul>
       </div>
     </details>
   </div>
@@ -807,6 +817,31 @@
       return 9.0;
     }
 
+    // Longitud aproximada en base a volumen [L] y diámetro [mm]
+    function estimarLongitudAprox(volumenL, diametroMm) {
+      const minCalc = getMinCalcByDiameter(diametroMm); // mm
+      const t_mm = 1.115 * minCalc;                     // espesor nominal aprox
+      const D_cm = diametroMm / 10.0;
+      const t_cm = t_mm / 10.0;
+      const r_ext_cm = D_cm / 2.0;
+      const r_int_cm = r_ext_cm - t_cm;
+
+      if (r_int_cm <= 0) return null;
+
+      const V_cm3 = volumenL * 1000.0;
+      const core = V_cm3 - (4.0 / 3.0) * Math.PI * Math.pow(r_int_cm, 3);
+
+      let L_c_cm;
+      if (core <= 0) {
+        L_c_cm = 0;
+      } else {
+        L_c_cm = core / (Math.PI * r_int_cm * r_int_cm);
+      }
+
+      const L_ext_cm = L_c_cm + D_cm; // aprox: cilindro + dos semiesferas
+      return L_ext_cm * 10.0; // mm
+    }
+
     const volumenLInput = document.getElementById("volumenL");
     const masaActualInput = document.getElementById("masaActual");
     const diametroInput = document.getElementById("diametro");
@@ -820,6 +855,7 @@
 
     const resPesajeActual = document.getElementById("resPesajeActual");
     const resPesajeLleno = document.getElementById("resPesajeLleno");
+    const resLongAprox = document.getElementById("resLongAprox");
 
     const resMinCalc = document.getElementById("resMinCalc");
     const resOjiva = document.getElementById("resOjiva");
@@ -874,12 +910,10 @@
 
       const minCalc = getMinCalcByDiameter(diamNom);
 
-      // Ojiva y fondo escaladas por diámetro
       const ojivaNom = diamNom * 0.066;
       const fondoNom = diamNom * 0.057;
 
       const ojivaVals = simEspesores(ojivaNom, 0.4, 4);
-      // PARED basada en mínimo de cálculo, factor ~1.115
       const paredNom = minCalc * 1.115;
       const paredVals = simEspesores(paredNom, 0.15, 4);
       const fondoVals = simEspesores(fondoNom, 0.4, 4);
@@ -888,9 +922,8 @@
       const espMin = minArray(todosEspesores);
       const espesoresOk = espMin >= minCalc;
 
-      // Ensayo hidráulico más realista: total ~2 %
       const totalPct = randomInRange(1.8, 2.4);
-      const relacionFrac = randomInRange(0.04, 0.08); // 4–8 % de la total
+      const relacionFrac = randomInRange(0.04, 0.08);
       const permPct = totalPct * relacionFrac;
 
       const aguaIngreso = (volumenCm3 * totalPct) / 100;
@@ -929,6 +962,14 @@
 
       resPesajeActual.textContent = formatNumber(pesajeActual, 2);
       resPesajeLleno.textContent = formatNumber(pesajeLleno, 2);
+
+      // Longitud aproximada geométrica
+      const longEst_mm = estimarLongitudAprox(volumenLitros, diamNom);
+      if (longEst_mm && !isNaN(longEst_mm)) {
+        resLongAprox.textContent = formatNumber(longEst_mm, 0);
+      } else {
+        resLongAprox.textContent = "-";
+      }
 
       resMinCalc.textContent = formatNumber(minCalc, 2);
       resOjiva.textContent = ojivaVals.map(v => formatNumber(v, 1)).join(" / ");
@@ -995,6 +1036,7 @@
       errorMsg.textContent = "";
       resultBlock.style.display = "none";
       estadoGlobal.innerHTML = "";
+      resLongAprox.textContent = "";
     });
   </script>
 
@@ -1056,7 +1098,7 @@
           spanBvg.textContent = item.bvg || "-";
           spanGrupo.textContent = item.grupo || "-";
           spanMat.textContent = item.material || "-";
-          spanLong.textContent = item.longitud != null ? item.longitud : "-";
+          spanLong.textContent = (item.longitud != null && item.longitud !== "") ? item.longitud : "-";
           mensaje.textContent = "";
         }
       }
